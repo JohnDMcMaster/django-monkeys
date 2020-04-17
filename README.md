@@ -9,14 +9,15 @@ and an app named typer that lets the user type what they see in a given image.
 
 Using:
   * Python 3.5+
+    * "ImportError: No module named 'secrets'": 3.6?
   * Django 1.11
 
 
 Dependencies:
 
 ```
-pip install django-registration
-pip install Pillow
+sudo pip3 install django-registration
+sudo pip3 install Pillow
 ```
 
 Edit settings.py
@@ -36,6 +37,37 @@ Also maybe monkeys/views.py
 
 ## Creating jobs
 
+Cutting up the jpeg is done in the image chopper program. There's an option to export a series of images. Gotta draw lines first, etc
+
+https://github.com/andrew-gardner/die-toy
+
+```
+sudo apt-get install -y git
+git clone https://github.com/andrew-gardner/die-toy.git
+sudo apt install -y cmake
+sudo apt-get install -y qtbase5-dev
+    fixes: Qt5NetworkConfig.cmake
+sudo apt-get install libopencv-dev
+    WARNING: worked ubuntu 18.04, didn't ubuntu 16.04
+mkdir build
+cd build
+cmake ..
+make
+
+./dieToy -h
+Usage: ./dieToy [options]
+DieToy : An application to manipulate images of chip dies.
+
+Options:
+  -h, --help                       Displays this help.
+  -v, --version                    Displays version information.
+  -i, --image <filename>           Die image to load.
+  -d, --dieDescription <filename>  Die description file to load.
+```
+
+```
+python testAddSega_315-[WHATEVER]_xpol.py
+```
 
 ## Running
 
