@@ -11,7 +11,7 @@ from typer.models import Pdf, PdfImage, TypedPdf
 import glob
 
 # Add the die
-task = Pdf(name="furby1")
+task = Pdf(name="furby_scan")
 task.save()
 
 # Add its instructions (with custom [[[IMAGE_NAME (WIDTH HEIGHT)]]] markup)
