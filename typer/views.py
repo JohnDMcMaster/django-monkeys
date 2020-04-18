@@ -299,7 +299,12 @@ def taskInstructionsView(request, dieName):
         if len(splitData) > 1:
             imageWidth = int(splitData[1])
             imageHeight = int(splitData[2])
-        imageObject = taskObject.instructionsimage_set.filter(Q(name=imageName))
+        if type(taskObject) == Die:
+            imageObject = taskObject.dieinstructionsimage_set.filter(Q(name=imageName))
+        elif type(taskObject) == Pdf:
+            imageObject = taskObject.pdfinstructionsimage_set.filter(Q(name=imageName))
+        else:
+            assert 0
         imageUrl = staticfiles.static(imageObject[0].image.url)
         if len(splitData) > 1:
             refText = """<img src="%s" width=%d height=%d>""" % (imageUrl, imageWidth, imageHeight)
