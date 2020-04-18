@@ -17,7 +17,7 @@ task.save()
 # Add its instructions (with custom [[[IMAGE_NAME (WIDTH HEIGHT)]]] markup)
 # Images created by zooming 200% into pdf
 task.instructions = """
-Thank you for your interest in the sipr0n crowdsource project! We appreciate your time and want to make the most of it. Please review the below instructions to ensure we are able to use your results.
+Thank you for your interest in our crowdsourcing project! We appreciate your time and want to make the most of it. Please review the below instructions to ensure we are able to use your results.
 <br />
 <br />
 [[[furby_scan_furby]]]
@@ -44,6 +44,7 @@ So apologies if you only have mobile, but you may not be able to help with this 
 <br />
 <br />
 Sometimes large runs of odd looking characters like above appear due to a print out issue. Please type them out literally the best you can. For example, please type above as:
+<br />
 <br />
 ;EIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 <br />
