@@ -94,6 +94,9 @@ Finally, we are very interested in getting assembly directives correct.
 These are anything before a ";" and are often in capital letters.
 <br />
 <br />
+Don't include the page number at the bottom (ex: A-123)
+<br />
+<br />
 Note: if you already submitted a page it is not possible to modify it at this time.
 But don't worry, most of the time we can detect errors by combining a few results.
 <br />
