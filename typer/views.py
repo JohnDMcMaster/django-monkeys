@@ -11,10 +11,137 @@ from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.models import User
 from django.contrib.staticfiles.templatetags import staticfiles
 from .models import Die, DieImage, TypedDie
-from .forms import MonkeyTyperForm
+from .models import Pdf, PdfImage, TypedPdf
+from .models import TaskMap
+from .forms import DieMonkeyTyperForm, PdfMonkeyTyperForm
+
+TyperFormMap = {
+    Die: DieMonkeyTyperForm,
+    Pdf: PdfMonkeyTyperForm,
+}
+
+Image2TypedTask = {
+    DieImage: TypedDie,
+    PdfImage: TypedPdf,
+}
+
+Task2TypedTask = {
+    Die: TypedDie,
+    Pdf: TypedPdf,
+}
+
+Task2TaskImage = {
+    Die: DieImage,
+    Pdf: PdfImage,
+}
 
 logger = logging.getLogger(__name__)
 
+def getTaskByName(name):
+    taskObject = Die.objects.filter(name=name)
+    if len(taskObject) == 1:
+        return taskObject[0]
+    taskObject = Pdf.objects.filter(name=name)
+    if len(taskObject) == 1:
+        return taskObject[0]
+    raise ValueError("can not find task %s" % name)
+
+def getTypedTaskByName(taskId):
+    typedObject = TypedDie.objects.filter(id=taskId)
+    if len(typedObject) == 1:
+        return typedObject[0]
+    typedObject = TypedPdf.objects.filter(id=taskId)
+    if len(typedObject) == 1:
+        return typedObject[0]
+    raise ValueError("can not find typed task %s" % name)
+
+def getTypedTaskClassByName(taskId):
+    typedObject = TypedDie.objects.filter(id=taskId)
+    if len(typedObject) == 1:
+        return TypedDie
+    typedObject = TypedPdf.objects.filter(id=taskId)
+    if len(typedObject) == 1:
+        return TypedPdf
+    raise ValueError("can not find typed task %s" % taskId)
+
+def indexViewGET(request, taskName):
+    # Standard page display
+    taskObject = getTaskByName(taskName)
+    TypedTask = Task2TypedTask[type(taskObject)]
+    print("Finding tasks...")
+    allAvailableFields = TypedTask.objects.filter(Q(typedField="") & Q(taskImage__task=taskObject))
+    print("Tasks; %s" % len(allAvailableFields))
+
+    thingsUserHasTyped = TypedTask.objects.filter(~Q(typedField="") & Q(submitter=request.user) & Q(taskImage__task=taskObject))
+    setTyped = [td.taskImage_id for td in thingsUserHasTyped]
+    usableFields = list(filter(lambda x: x.taskImage_id not in setTyped, allAvailableFields))
+    #print 'avail', len(allAvailableFields)
+    #print 'typed', len(setTyped)
+    #print 'usable', len(usableFields)
+
+    if not usableFields:
+        return HttpResponse("<html><body>All fields have been typed for this task. Check back later to see if there are other tasks to type.</body></html>")
+
+    # Choose a random field to display
+    randomField = random.randint(0, len(usableFields)-1)
+    randomId = usableFields[randomField].id
+
+    print("ok")
+    # Display the random page
+    return imageInput(TypedTask, request, randomId, seed=True)
+
+
+def indexViewPOST(request, dieName):
+    # Data has been POSTed
+    # Pull the previous die field out of the form's hidden data
+    dieId = int(request.POST['taskField'])
+
+    taskField = getTypedTaskByName(dieId)
+    TypedTask = type(taskField)
+
+    someoneCompletedTheFieldBeforeYou = taskField.completed()
+
+    # Create a form object from the post data and knowledge of which taskField we're dealing with
+    form = PdfMonkeyTyperForm(request.POST, instance=taskField)
+
+    # Insure input is valid (if it is, data is stored in taskField, but not saved to the database)
+    # TODO: There is a very good chance exceptions aren't being used correctly here
+    if not form.is_valid():
+        # Redisplay the same page but with an error message
+        error = form.errors.as_data()['typedField'][0].message
+        return imageInput(TypedTask, request, taskField.id, error, form.data['typedField'])
+
+    # If the strange situation occurred where someone snuck in and completed the field before you
+    if someoneCompletedTheFieldBeforeYou:
+        # TODO: Convert to django/Python logging
+        dieObject = taskField.taskImage.die
+        taskImageObject = taskField.taskImage
+        print("User %s attempted to submit %s die image %s typed id %d, but someone else did first" %
+              (request.user,
+               dieObject,
+               taskImageObject,
+               dieId))
+
+        # Find the next available taskField that is not completed
+        availableFields = TypedTask.objects.filter(Q(typedField="") & Q(taskImage__task=dieObject) & Q(taskImage=taskImageObject))
+
+        # If there is no place to squeeze the data in, just return the next random page
+        if not len(availableFields):
+            print("And there was no place free to put their work, so it got trashed")
+            return HttpResponseRedirect('/typer/' + dieName)
+
+        # If there is space, stuff it in the first object that's available
+        print("So we are adding it to field %s instead" % taskField)
+        taskField = availableFields[0]
+
+    # Submit the user's input
+    taskField.submitter = request.user
+    taskField.submitDate = timezone.now()
+    # No need to update typedField since it's already saved in the is_valid() function call above
+    taskField.save()
+
+    # Return the next random page
+    return HttpResponseRedirect(reverse('typer:index', kwargs={'dieName':dieName}))
 
 def indexView(request, dieName):
     """
@@ -23,116 +150,58 @@ def indexView(request, dieName):
     method since this view decides it dynamically.
 
     Note:
-    allAvailableFields = allAvailableFields.exclude(Q(dieImage=tuht.dieImage))
+    allAvailableFields = allAvailableFields.exclude(Q(taskImage=tuht.taskImage))
     Resulted in large AND NOT query after adding many entries
     Instead two separate queries and subtract out manually
     """
-    userIsStaff = request.user.is_staff
+    # userIsStaff = request.user.is_staff
 
     if request.method == 'GET':
-        # Standard page display
-        dieObject = Die.objects.filter(name=dieName)[0]
-        allAvailableFields = TypedDie.objects.filter(Q(typedField="") & Q(dieImage__die=dieObject))
-
-        thingsUserHasTyped = TypedDie.objects.filter(~Q(typedField="") & Q(submitter=request.user) & Q(dieImage__die=dieObject))
-        setTyped = [td.dieImage_id for td in thingsUserHasTyped]
-        usableFields = list(filter(lambda x: x.dieImage_id not in setTyped, allAvailableFields))
-        #print 'avail', len(allAvailableFields)
-        #print 'typed', len(setTyped)
-        #print 'usable', len(usableFields)
-
-        if not usableFields:
-            return HttpResponse("<html><body>All fields have been typed for this die. Check back later to see if there are other dies to type.</body></html>")
-
-        # Choose a random field to display
-        randomField = random.randint(0, len(usableFields)-1)
-        randomId = usableFields[randomField].id
-
-        # Display the random page
-        return imageInput(request, randomId)
-
+        return indexViewGET(request, dieName)
     else:
-        # Data has been POSTed
-        # Pull the previous die field out of the form's hidden data
-        dieId = int(request.POST['dieField'])
-        dieField = TypedDie.objects.filter(id=dieId)[0]
-        someoneCompletedTheFieldBeforeYou = dieField.completed()
+        return indexViewPOST(request, dieName)
 
-        # Create a form object from the post data and knowledge of which dieField we're dealing with
-        form = MonkeyTyperForm(request.POST, instance=dieField)
-
-        # Insure input is valid (if it is, data is stored in dieField, but not saved to the database)
-        # TODO: There is a very good chance exceptions aren't being used correctly here
-        if not form.is_valid():
-            # Redisplay the same page but with an error message
-            error = form.errors.as_data()['typedField'][0].message
-            return imageInput(request, dieField.id, error, form.data['typedField'])
-
-        # If the strange situation occurred where someone snuck in and completed the field before you
-        if someoneCompletedTheFieldBeforeYou:
-            # TODO: Convert to django/Python logging
-            dieObject = dieField.dieImage.die
-            dieImageObject = dieField.dieImage
-            print("User %s attempted to submit %s die image %s typed id %d, but someone else did first" %
-                  (request.user,
-                   dieObject,
-                   dieImageObject,
-                   dieId))
-
-            # Find the next available dieField that is not completed
-            availableFields = TypedDie.objects.filter(Q(typedField="") & Q(dieImage__die=dieObject) & Q(dieImage=dieImageObject))
-
-            # If there is no place to squeeze the data in, just return the next random page
-            if not len(availableFields):
-                print("And there was no place free to put their work, so it got trashed")
-                return HttpResponseRedirect('/typer/' + dieName)
-
-            # If there is space, stuff it in the first object that's available
-            print("So we are adding it to field %s instead" % dieField)
-            dieField = availableFields[0]
-
-        # Submit the user's input
-        dieField.submitter = request.user
-        dieField.submitDate = timezone.now()
-        # No need to update typedField since it's already saved in the is_valid() function call above
-        dieField.save()
-
-        # Return the next random page
-        return HttpResponseRedirect(reverse('typer:index', kwargs={'dieName':dieName}))
-
-
-def imageInput(request, fieldId, error=None, fieldData=None):
+def imageInput(TypedTask, request, fieldId, error=None, seed=False, fieldData=None):
     """
     Helper function for the indexView - responsible for creating the page
     that features the input interface & possible error messages.
     """
     # Recover the requested die image and its corresponding die
-    dieField = get_object_or_404(TypedDie, id=fieldId)
-    di = dieField.dieImage
-    d = di.die
+    taskField = get_object_or_404(TypedTask, id=fieldId)
+    di = taskField.taskImage
+    d = di.task
+
+    if seed:
+        fieldData = di.seed
 
     # Populate the form with the raw data from the previous submit if there was an error
+    """
     if error and fieldData:
-        form = MonkeyTyperForm(instance=dieField, initial={'typedField': fieldData})
+        form = PdfMonkeyTyperForm(instance=taskField, initial={'typedField': fieldData})
     else:
-        form = MonkeyTyperForm(instance=dieField)
+        form = PdfMonkeyTyperForm(instance=taskField, initial={'typedField': fieldData})
+    """
+    # think this can be simplified?
+    form = PdfMonkeyTyperForm(instance=taskField, initial={'typedField': fieldData})
 
-    # Prune off just the filename from the dieImage url
-    dieImageBasename = os.path.basename(dieField.dieImage.image.url)
+    # Prune off just the filename from the taskImage url
+    taskImageBasename = os.path.basename(taskField.taskImage.image.url)
 
     # Display the input page
     context = {
-                  'die': d,
-                  'dieImage': di,
-                  'dieImageBasename': dieImageBasename,
-                  'typedDie': dieField,
+                  'task': d,
+                  'taskImage': di,
+                  'taskImageBasename': taskImageBasename,
+                  'typedTask': taskField,
                   'form' : form,
                   'error' : error,
               }
-    return render(request, 'typer/imageInput.html', context)
+    # FIXME: handle
+    # return render(request, 'typer/imageInput.html', context)
+    return render(request, 'typer/pdfInput.html', context)
 
 
-def dieSpecificUserStatisticsView(request, dieName, userName):
+def taskSpecificUserStatisticsView(request, dieName, userName):
     """
     A view that shows interesting statistics for the user specified in the url.
     """
@@ -142,7 +211,9 @@ def dieSpecificUserStatisticsView(request, dieName, userName):
         return HttpResponse("<html><body>Only administrators can access user statistics directly</body></html>")
 
     # Get the User object from the username
-    dieObject = Die.objects.filter(name=dieName)[0]
+    dieObject = getTaskByName(dieName)
+    TypedTask = Task2TypedTask[type(dieObject)]
+    TaskImage = Task2TaskImage[type(dieObject)]
     specifiedUser = None
     for user in User.objects.all():
         if userName == user.username:
@@ -151,14 +222,18 @@ def dieSpecificUserStatisticsView(request, dieName, userName):
         return HttpResponse("<html><body>The user %s does not exist.</body></html>" % userName)
 
     # Carry on
-    userTypedTheseFields = TypedDie.objects.filter(Q(dieImage__die=dieObject) & Q(submitter=specifiedUser))
+    # typer.models.Pdf
+    print(type(dieObject))
+    # typer.models.TypedPdf
+    print(TypedTask)
+    userTypedTheseFields = TypedTask.objects.filter(Q(taskImage__task=dieObject) & Q(submitter=specifiedUser))
 
     # How does this user's entry count compare to the others?
     userEntryTupleList = list()
     for user in User.objects.all():
         if user == specifiedUser:
             continue
-        otherUserTypedFields = TypedDie.objects.filter(Q(dieImage__die=dieObject) & Q(submitter=user))
+        otherUserTypedFields = TypedTask.objects.filter(Q(taskImage__task=dieObject) & Q(submitter=user))
         userEntryTupleList.append((user, len(otherUserTypedFields)))
     sortedByEntry = [x for (y,x) in sorted(userEntryTupleList, key=lambda pair: pair[1], reverse=True)]
     quantityRank = len(sortedByEntry)
@@ -173,7 +248,7 @@ def dieSpecificUserStatisticsView(request, dieName, userName):
     for userTypedField in userTypedTheseFields:
         typedFieldCount = 0
         perfectMatchCount = 0
-        allFieldsRelatedToUserTypedField = TypedDie.objects.filter(Q(dieImage=userTypedField.dieImage) & ~Q(submitter=specifiedUser))
+        allFieldsRelatedToUserTypedField = TypedTask.objects.filter(Q(taskImage=userTypedField.taskImage) & ~Q(submitter=specifiedUser))
         for field in allFieldsRelatedToUserTypedField:
             if field.completed():
                 perfectMatchCount += 1 if (userTypedField.typedField == field.typedField) else 0
@@ -189,7 +264,7 @@ def dieSpecificUserStatisticsView(request, dieName, userName):
             comparisonMessages.append("You are the only one to type data for this image so far")
 
     # TODO: Low importance fix - if you're an admin and you 'typed the same image twice' this number is wrong
-    allImagesForDie = DieImage.objects.filter(Q(die=dieObject))
+    allImagesForDie = TaskImage.objects.filter(Q(task=dieObject))
     typedPercent = round(float(len(userTypedTheseFields)) / float(len(allImagesForDie)) * 100.0, 2)
     context = {
                   'die' : dieObject,
@@ -199,16 +274,21 @@ def dieSpecificUserStatisticsView(request, dieName, userName):
                   'specifiedUser' : specifiedUser,
                   'fieldsAndMessages' : zip(userTypedTheseFields, comparisonMessages)
               }
-    return render(request, 'typer/userStatistics.html', context)
+    html = {
+        Die: 'typer/userStatisticsDie.html',
+        Pdf: 'typer/userStatisticsPdf.html',
+    }[type(dieObject)]
+    return render(request, html, context)
 
 
-def dieInstructionsView(request, dieName):
+def taskInstructionsView(request, dieName):
     """
     A view that simply displays the instructions image and instruction text
     for the given Die.
     """
-    dieObject = Die.objects.filter(name=dieName)[0]
-    instructions = dieObject.instructions
+    
+    taskObject = getTaskByName(dieName)
+    instructions = taskObject.instructions
 
     # Find all the instances of images in our special markup [[[IMAGE_NAME (WIDTH HEIGHT)]]]
     m = re.finditer(r'\[\[\[(.*?)\]\]\]', instructions)
@@ -219,7 +299,7 @@ def dieInstructionsView(request, dieName):
         if len(splitData) > 1:
             imageWidth = int(splitData[1])
             imageHeight = int(splitData[2])
-        imageObject = dieObject.instructionsimage_set.filter(Q(name=imageName))
+        imageObject = taskObject.instructionsimage_set.filter(Q(name=imageName))
         imageUrl = staticfiles.static(imageObject[0].image.url)
         if len(splitData) > 1:
             refText = """<img src="%s" width=%d height=%d>""" % (imageUrl, imageWidth, imageHeight)
@@ -228,9 +308,9 @@ def dieInstructionsView(request, dieName):
         instructions = instructions.replace(foundMatch.group(0), refText)
 
     # Copy the instructions back to a local die object (no database write)
-    dieObject.instructions = instructions
+    taskObject.instructions = instructions
     context = {
-                  'die' : dieObject
+                  'die' : taskObject
               }
     return render(request, 'typer/instructions.html', context)
 
@@ -238,16 +318,17 @@ def dieInstructionsView(request, dieName):
 def adminStatisticsView(request, dieName):
     """
     """
-    dieObject = Die.objects.filter(name=dieName)[0]
+    dieObject = getTaskByName(dieName)
+    TypedTask = Task2TypedTask[type(dieObject)]
 
     # Get how many fields and how many have been typed
-    allFields = TypedDie.objects.filter(Q(dieImage__die=dieObject))
-    typedFields = TypedDie.objects.filter(Q(dieImage__die=dieObject) & ~Q(typedField=""))
+    allFields = TypedTask.objects.filter(Q(taskImage__task=dieObject))
+    typedFields = TypedTask.objects.filter(Q(taskImage__task=dieObject) & ~Q(typedField=""))
 
     # Get a list of who's on first
     scoreboard = list()
     for user in User.objects.all():
-        userTyped = TypedDie.objects.filter(~Q(typedField="") & Q(submitter=user) & Q(dieImage__die=dieObject))
+        userTyped = TypedTask.objects.filter(~Q(typedField="") & Q(submitter=user) & Q(taskImage__task=dieObject))
         scoreboard.append( (user, len(userTyped)) )
     sortedScores = sorted(scoreboard, key=lambda tup: tup[1], reverse=True)
 
@@ -267,32 +348,34 @@ def adminSummaryHomeView(request, dieName):
     can see how much data has been entered for each image and click on
     the image to open a new view showing more details.
     """
-    dieObject = Die.objects.filter(name=dieName)[0]
-    allAvailableDieImages = DieImage.objects.filter(Q(die=dieObject))
-    allApplicableTypedDies = TypedDie.objects.filter(Q(dieImage__die=dieObject))
+    dieObject = getTaskByName(dieName)
+    TypedTask = Task2TypedTask[type(dieObject)]
+    TaskImage = Task2TaskImage[type(dieObject)]
+    allAvailableDieImages = TaskImage.objects.filter(Q(task=dieObject))
+    allApplicableTypedDies = TypedTask.objects.filter(Q(taskImage__task=dieObject))
 
     # Count all the entered fields for this die image (TODO: There must be a more Pythonic way to do this)
     totalFields = 0
     totalCompletedFields = 0
     dieIsCompleted = list()
-    dieImageEntryCounts = list()
+    taskImageEntryCounts = list()
     # TODO: This is very slow right now - seems to be 2/3 python and 1/3 html - could be sped up with a Paginator
     for di in allAvailableDieImages:
-        typedFields = allApplicableTypedDies.filter(Q(dieImage=di))
+        typedFields = allApplicableTypedDies.filter(Q(taskImage=di))
         completedFieldCount = 0
         for tf in typedFields:
             if tf.completed():
                 completedFieldCount += 1
         totalFields += len(typedFields)
         totalCompletedFields += completedFieldCount
-        dieImageEntryCounts.append(completedFieldCount)
+        taskImageEntryCounts.append(completedFieldCount)
         dieIsCompleted.append(completedFieldCount == len(typedFields))
 
     completedPercent = round(float(totalCompletedFields) / float(totalFields) * 100.0, 2)
 
     context = {
                   'die': dieObject,
-                  'dieImageInfo': zip(allAvailableDieImages, dieImageEntryCounts, dieIsCompleted),
+                  'dieImageInfo': zip(allAvailableDieImages, taskImageEntryCounts, dieIsCompleted),
                   'completedPercent': completedPercent
               }
     return render(request, 'typer/adminSummaryHome.html', context)
@@ -304,9 +387,11 @@ def adminSummaryView(request, dieName, imageId):
     for a given Die and DieImage.  One can also do rudimentary changes to the
     entered data and compare results.
     """
-    dieObject = Die.objects.filter(name=dieName)[0]
-    dieImage = DieImage.objects.filter(id=imageId)[0]
-    allAvailableFields = TypedDie.objects.filter(Q(dieImage__die=dieObject) & Q(dieImage__id=imageId))
+    dieObject = getTaskByName(dieName)
+    TypedTask = Task2TypedTask[type(dieObject)]
+    TaskImage = Task2TaskImage[type(dieObject)]
+    taskImage = TaskImage.objects.filter(id=imageId)[0]
+    allAvailableFields = TypedTask.objects.filter(Q(taskImage__task=dieObject) & Q(taskImage__id=imageId))
 
     if request.method == "POST":
         # Pull which clear button was pressed
@@ -332,7 +417,7 @@ def adminSummaryView(request, dieName, imageId):
             saveNumber = int(saveNumberRe.group(0))
             workingField = allAvailableFields[saveNumber]
 
-            form = MonkeyTyperForm(request.POST, instance=workingField)
+            form = PdfMonkeyTyperForm(request.POST, instance=workingField)
             if not form.is_valid():
                 # TODO: Do something interesting here (really the admin should know better).
                 #       As for now, it just reverts your changes.
@@ -348,20 +433,20 @@ def adminSummaryView(request, dieName, imageId):
     populatedForms = list()
     submitTimeArray = list()
     for aaf in allAvailableFields:
-        populatedForms.append(MonkeyTyperForm(instance=aaf, initial={'typedField': aaf.typedField}))
+        populatedForms.append(PdfMonkeyTyperForm(instance=aaf, initial={'typedField': aaf.typedField}))
         submitterArray.append(aaf.submitter)
         if aaf.submitDate:
             submitTimeArray.append(str(aaf.submitDate)[2:10] + "<br />" + str(aaf.submitDate)[12:16])
         else:
             submitTimeArray.append("N/A<br />N/A<br />")
 
-    # Prune off just the filename from the dieImage url
-    dieImageBasename = os.path.basename(dieImage.image.url)
+    # Prune off just the filename from the taskImage url
+    taskImageBasename = os.path.basename(taskImage.image.url)
 
     context = {
                   'die': dieObject,
-                  'dieImage': dieImage,
-                  'dieImageBasename': dieImageBasename,
+                  'dieImage': taskImage,
+                  'dieImageBasename': taskImageBasename,
                   'dieInfoArray': zip(populatedForms, submitterArray, submitTimeArray, range(len(submitTimeArray)))
               }
 

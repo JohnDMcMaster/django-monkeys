@@ -31,10 +31,6 @@ function ButtonClick_AllOnes()
       <td valign="top">
       {{form.typedField}}<br>
       <input type="submit" name="submitButton" value="Submit" />
-      &nbsp&nbsp
-      <input type="button" value="All Zeros" name="allZeros" onclick="ButtonClick_AllZeros()">
-      &nbsp
-      <input type="button" value="All Ones" name="allOnes" onclick="ButtonClick_AllOnes()">
       </td>
       {# Pass some hidden information on to the POST - must be in the form tag #}
       <input type="hidden" name="taskField" value="{{typedTask.id}}" />

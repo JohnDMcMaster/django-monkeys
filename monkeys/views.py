@@ -4,7 +4,7 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
-from typer.models import Die, SiteSettings
+from typer.models import Die, Pdf, SiteSettings
 from .forms import ContactForm
 
 
@@ -14,14 +14,16 @@ def homeView(request):
     These can be clicked on to enter data, instructions can be read,
     or administrators can inspect results.
     """
-    dieList = Die.objects.all()
+    # unsupported operand type(s) for +: 'QuerySet' and 'QuerySet'
+    # taskList = Die.objects.all() + Pdf.objects.all()
+    taskList = Pdf.objects.all()
     siteSettings = SiteSettings.objects.all()
     if len(siteSettings):
         siteSettings = siteSettings[0]
     introText = siteSettings.introText if siteSettings else ""
 
     context = {
-                  'dieList': dieList,
+                  'taskList': taskList,
                   'introText': introText
               }
     return render(request, 'home.html', context)

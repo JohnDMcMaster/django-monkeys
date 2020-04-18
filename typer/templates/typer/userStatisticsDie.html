@@ -15,9 +15,9 @@
     {% for field, message in fieldsAndMessages %}
     <tr>
     <td valign="top">
-      Column {{ field.dieImage.cropCol }}, Row {{ field.dieImage.cropRow }}<br />
+      Column {{ field.taskImage.cropCol }}, Row {{ field.taskImage.cropRow }}<br />
       {% load static %}
-      <img src="{% static field.dieImage.image.url %}"><br />
+      <img src="{% static field.taskImage.image.url %}"><br />
     </td>
     <td valign="top">
       <code>{{ field.typedField | linebreaks }}</code>

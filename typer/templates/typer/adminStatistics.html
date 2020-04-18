@@ -11,7 +11,7 @@
     <table cellpadding=0 cellspacing=0 border=0 width=15%>
     {% for user, score in scoreboard %}
     <tr>
-      <td><a href="{% url 'typer:dieSpecificUserStatistics' die.name user.username %}"> {{ user }} </a></td>
+      <td><a href="{% url 'typer:taskSpecificUserStatistics' die.name user.username %}"> {{ user }} </a></td>
       <td> {{ score }} </td>
     </tr>
     {% endfor %}

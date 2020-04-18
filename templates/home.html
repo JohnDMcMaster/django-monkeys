@@ -5,19 +5,19 @@
 {% block content %}
   {% if user.is_authenticated %}
     <h2>Greetings {{ user.username }}!<br></h2>
-    Please choose from one of the following dies to work on...<br>
+    Please choose from one of the following tasks to work on...<br>
     <h3>
-    {% for die in dieList %}
-      <a href="{% url 'typer:index' die %}">{{die}}</a>
+    {% for task in taskList %}
+      <a href="{% url 'typer:index' task %}">{{task}}</a>
       &nbsp--&nbsp
-      <a href="{% url 'typer:dieInstructions' die %}">instructions</a>
+      <a href="{% url 'typer:taskInstructions' task %}">instructions</a>
       &nbsp--&nbsp
-      <a href="{% url 'typer:dieSpecificUserStatistics' die user %}">statistics</a>
+      <a href="{% url 'typer:taskSpecificUserStatistics' task user %}">statistics</a>
       {% if user.is_superuser %}
         &nbsp--&nbsp
-        <a href="{% url 'typer:adminSummaryHome' die %}">[[results</a>
+        <a href="{% url 'typer:adminSummaryHome' task %}">[[results</a>
         &nbsp--&nbsp
-        <a href="{% url 'typer:adminStatistics' die %}">statistics]]</a>
+        <a href="{% url 'typer:adminStatistics' task %}">statistics]]</a>
       {% endif %}
       <br />
     {% endfor %}

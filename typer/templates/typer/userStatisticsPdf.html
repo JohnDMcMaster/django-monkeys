@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}Statistics for {{die.name}}{% endblock %}
+
+{% block content %}
+  {% if user.is_authenticated %}
+    <h2>Statistics for user {{ specifiedUser.username }} entering data for die : <i>{{ die.name }}</i></h2>
+    You have typed {{ typedCount }} fields for this die.<br />
+    This is {{ typedPercent }}% of the total number of images for this die.<br />
+    You are ranked #{{ quantityRank }} in terms of number of images entered.<br />
+    <br />
+    <u>This is the work you have done:</u><br />
+
+    <table cellspacing=10 cellpadding=10 border=0>
+    {% for field, message in fieldsAndMessages %}
+    <tr>
+    <td valign="top">
+      Page {{ field.taskImage.page }}<br />
+      {% load static %}
+      <img src="{% static field.taskImage.image.url %}"><br />
+    </td>
+    <td valign="top">
+      <code>{{ field.typedField | linebreaks }}</code>
+    </td>
+    <td valign="center">
+      <code>{{ message | linebreaks }}</code>
+    </td>
+    </tr>
+    {% endfor %}
+    </table>
+
+  {% else %}
+    <h2>Please either <a href="{% url 'login' %}">login</a> or <a href="{% url 'register' %}">register</a> for an account before reading the instructions.</h2>
+  {% endif %}
+{% endblock %}
