@@ -18,9 +18,6 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.11/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'hy+2uavuxi!0xebwl(q6i@@5ihw)fg7)n722fn4@%-c1*gdw74'
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -121,12 +118,16 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 # Switch over to static_root when deploying
-#STATIC_ROOT = os.path.join(BASE_DIR, "static")
-STATICFILES_DIRS = [ os.path.join(BASE_DIR, "static") ]
-
+STATIC_ROOT = os.path.join(BASE_DIR, "static_prod")
+STATICFILES_DIRS = [os.path.join(BASE_DIR, "static"),]
 
 # TODO: If I want to point at an app, can I do it without hard-coding the app path?
 LOGIN_REDIRECT_URL = '/'
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# Test key
+# Add to your local_settings.py if you want to use
+# SECRET_KEY = 'hy+2uavuxi!0xebwl(q6i@@5ihw)fg7)n722fn4@%-c1*gdw74'
 
 # You must define these in local settings for "contact" to work
 EMAIL_HOST = 'smtp.gmail.com'
