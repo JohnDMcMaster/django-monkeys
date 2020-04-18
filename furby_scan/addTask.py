@@ -94,6 +94,10 @@ Finally, we are very interested in getting assembly directives correct.
 These are anything before a ";" and are often in capital letters.
 <br />
 <br />
+Note: if you already submitted a page it is not possible to modify it at this time.
+But don't worry, most of the time we can detect errors by combining a few results.
+<br />
+<br />
 Still have questions or suggestions? Try the contact form at the top of the page.
 We'll get back to you as soon as we are able.
 Thanks again for your help!
