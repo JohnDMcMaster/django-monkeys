@@ -110,7 +110,7 @@ def indexViewGET(request, taskName):
             score = sum([1 if task.typedField else 0 for task in typedTasks])
             # No coverage?
             if score == 0:
-                print("selTask found 0")
+                print("selTask %u found 0" % len(scores))
                 return randomId
             scores[score] = randomId
         print("selTask scores", scores)
