@@ -90,9 +90,10 @@ def main():
     sol_max = max(freqs.values())
     print("Pages: %u" % pages)
     print("Submissions: %u" % sum(freqs.values()))
-    n0 = sum([1 if x > 0 else 0 for x in freqs.values()])
-    print("Covered: %u" % (pages - n0,))
-    print("0 solutions: %u" % n0)
+    zero_solutions = sum([1 if x == 0 else 0 for x in freqs.values()])
+    nonzero_solutions = sum([1 if x > 0 else 0 for x in freqs.values()])
+    print("Covered: %u" % nonzero_solutions)
+    print("0 solutions: %u" % zero_solutions)
     print("Min solutions: %u" % sol_min)
     print("Max solutions: %u" % sol_max)
 
