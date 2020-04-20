@@ -2,6 +2,7 @@ import os
 import re
 import random
 import logging
+import time
 
 from django.db.models import Q
 from django.urls import reverse
@@ -65,6 +66,7 @@ def getTypedTaskClassByName(taskId):
     raise ValueError("can not find typed task %s" % taskId)
 
 def indexViewGET(request, taskName):
+    tstart = time.time()
     # Standard page display
     taskObject = getTaskByName(taskName)
     TypedTask = Task2TypedTask[type(taskObject)]
@@ -82,11 +84,46 @@ def indexViewGET(request, taskName):
     if not usableFields:
         return HttpResponse("<html><body>All fields have been typed for this task. Check back later to see if there are other tasks to type.</body></html>")
 
-    # Choose a random field to display
-    randomField = random.randint(0, len(usableFields)-1)
-    randomId = usableFields[randomField].id
+    """
+    simple
+    0.061 sec
+    0.046 sec
+    0.049 sec
 
-    print("ok")
+    selTask()
+    3 rolls
+    0.066 sec
+    0.113 sec
+    0.086 sec
+
+    noticible but acceptable
+    QoR improvement is pretty good, so lets roll with it
+    """
+    def selTask():
+        # Choose a random field to display
+        # Try a few times and use the one with the lowest number of completions
+        scores = {}
+        for i in range(3):
+            randomField = random.randint(0, len(usableFields)-1)
+            randomId = usableFields[randomField].id
+            typedTasks = TypedTask.objects.filter(Q(taskImage=usableFields[randomField].taskImage))
+            score = sum([1 if task.typedField else 0 for task in typedTasks])
+            # No coverage?
+            if score == 0:
+                print("selTask found 0")
+                return randomId
+            scores[score] = randomId
+        print("selTask scores", scores)
+        # Take something tied for lowest number of completions
+        _completions, randomId = sorted(scores.items())[0]
+        return randomId
+
+    randomId = selTask()
+
+
+    tend = time.time()
+    print("%0.3f sec" % (tend - tstart,))
+
     # Display the random page
     return imageInput(TypedTask, request, randomId, seed=True)
 
