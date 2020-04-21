@@ -53,7 +53,6 @@ def main():
     global salt
 
     parser = argparse.ArgumentParser(description="Dump furby .txt")
-    add_bool_arg(parser, "--verbose", default=False)
     parser.add_argument("--salt", default=None)
     args = parser.parse_args()
     
